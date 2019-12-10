@@ -1,0 +1,60 @@
+import requests
+import os
+import json
+import csv
+import re
+#获取数据
+def getData(jobName,cityId):
+    lastResult = []
+    params = {"kw":jobName,"cityId":cityId}
+    url = "https://fe-api.zhaopin.com/c/i/sou?pageSize=90&workExperience=-1&education=-1&companyType=-1&employmentType=-1&jobWelfareTag=-1&kt=3"
+    res = json.loads(requests.get(url = url,params = params).text)
+    realData = res["data"]["results"]
+    salaryTmp = 0
+    for item in realData:
+        job_name = item["jobName"]       #获取职位名称
+        salary = disposeSalary(item["salary"])         #获取薪资
+        if salary == None:
+            salary = salaryTmp
+        else:
+            salaryTmp = salary
+        company = item["company"]["name"]  #公司名称
+        address = item["city"]["display"][0:2] #获取地址
+        eduLevel = item["eduLevel"]["name"]
+        result = {"职位名称":job_name,"薪资":salary,"公司名称":company,"工作地点":address,"学历":eduLevel}
+        lastResult.append(result)
+    return lastResult
+
+#处理薪资
+def disposeSalary(salary):
+    res = re.findall("\d",salary)
+    if len(res) > 0:
+        salarys = salary.split("-")
+        try:
+            salary1 = float(salarys[0][0:-1])
+            salary2 = float(salarys[1][0:-1])
+            return (salary1+salary2) / 2
+        except:
+            return None
+    else:
+        return None
+
+
+
+#数据写入csv文档
+def writeToCsv(jobName,data):
+    for item in data:
+        with open(jobName+".csv","a",encoding="utf-8",newline="") as f:
+            title = ["职位名称","薪资","公司名称","工作地点","学历"]
+            directWrite = csv.DictWriter(f,title)
+            if os.path.getsize(jobName+".csv") == 0:
+                directWrite.writeheader()
+            directWrite.writerow(item)
+
+if __name__ == '__main__':
+    citys = {"北京":530,"上海":538,"深圳":765,"广州":763,"西安":854}
+    jobNames = ["大数据","会计","电商","通讯","金融","行政管理","设计师"]
+    for job in jobNames:
+        for city in citys:
+            data = getData(job,citys[city])
+            writeToCsv(job,data)
